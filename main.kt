@@ -116,8 +116,15 @@ fun interpretFunction(line: String): String {
             format(simpFix(simpFix(deriv(simpFix(parse(expr))))))
         }
         line.startsWith("eval(") -> {
-            val expr = line.removePrefix("eval(").substringBefore(",")
-            eval(parse(expr)).toString()
+            val inner = line.removePrefix("eval(").substringBefore(")")
+            val parts = inner.split(",")
+            val expr = parts[0].trim()
+            val xVal = parts[1].trim().toIntOrNull()
+            if (xVal != null) {
+                evalWithX(parse(expr), xVal).toString()
+            } else {
+                eval(parse(expr)).toString()
+            }
         }
         line.startsWith("simplify(") -> {
             val expr = line.removePrefix("simplify(").substringBefore(",")
@@ -141,6 +148,17 @@ fun eval(e: MathExpressions): Int = when(e) {
     is MathExpressions.Mul -> eval(e.left) * eval(e.right)
     is MathExpressions.Div -> eval(e.left) / eval(e.right)
     is MathExpressions.Pow -> Math.pow(eval(e.base).toDouble(), eval(e.exp).toDouble()).toInt()
+}
+
+fun evalWithX(expression: MathExpressions, xVal: Int): Int = when(expression) {
+    is MathExpressions.Num -> expression.value
+    is MathExpressions.Variable -> if (expression.name == "x") xVal else throw Exception("unknown variable: ${expression.name}")
+    is MathExpressions.Negative -> -evalWithX(expression.name, xVal)
+    is MathExpressions.Add -> evalWithX(expression.left, xVal) + evalWithX(expression.right, xVal)
+    is MathExpressions.Sub -> evalWithX(expression.left, xVal) - evalWithX(expression.right, xVal)
+    is MathExpressions.Mul -> evalWithX(expression.left, xVal) * evalWithX(expression.right, xVal)
+    is MathExpressions.Div -> evalWithX(expression.left, xVal) / evalWithX(expression.right, xVal)
+    is MathExpressions.Pow -> Math.pow(evalWithX(expression.base, xVal).toDouble(), evalWithX(expression.exp, xVal).toDouble()).toInt()
 }
 
 fun simplify(e: MathExpressions): MathExpressions = when(e){
@@ -330,4 +348,7 @@ fun main(){
     println(formatBetter(parse("(3+x)*2")))       
     println(formatBetter(parse("3+x*2")))         
     println(formatBetter(deriv(parse("x^2+3*x"))))
+    println(interpretFunction("eval(x^2+3*x, 5)"))  
+    println(interpretFunction("eval(x^3-2*x, 3)"))
+    println(interpretFunction("eval(5-6*18/3+2, Y)"))
 }
