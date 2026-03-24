@@ -86,6 +86,32 @@ fun simplifyPow(base: MathExpressions, exp: MathExpressions): MathExpressions = 
     else -> MathExpressions.Pow(base, exp)
 }
 
+fun deriv(expression: MathExpressions): MathExpressions = simplify(when(expression) {
+    is MathExpressions.Num -> MathExpressions.Num(0)
+    is MathExpressions.Variable -> if (expression.name == "x") MathExpressions.Num(1) else MathExpressions.Num(0)
+    is MathExpressions.Negative -> MathExpressions.Negative(deriv(expression.name))
+    is MathExpressions.Add -> MathExpressions.Add(deriv(expression.left), deriv(expression.right))
+    is MathExpressions.Sub -> MathExpressions.Sub(deriv(expression.left), deriv(expression.right))
+    is MathExpressions.Mul -> MathExpressions.Add(
+        MathExpressions.Mul(deriv(expression.left), expression.right),
+        MathExpressions.Mul(expression.left, deriv(expression.right))
+    )
+    is MathExpressions.Div -> MathExpressions.Div(
+        MathExpressions.Sub(
+            MathExpressions.Mul(deriv(expression.left), expression.right),
+            MathExpressions.Mul(expression.left, deriv(expression.right))
+        ),
+        MathExpressions.Pow(expression.right, MathExpressions.Num(2))
+    )
+    is MathExpressions.Pow -> when {
+        expression.exp is MathExpressions.Num -> MathExpressions.Mul(
+            MathExpressions.Mul(expression.exp, MathExpressions.Pow(expression.base, MathExpressions.Num(expression.exp.value - 1))),
+            deriv(expression.base)
+        )
+        else -> throw Exception("can't differentiate this yet")
+    }
+})
+
 fun main(){
     val x = MathExpressions.Num(5)
     println(x)
@@ -101,4 +127,13 @@ fun main(){
     println(simplify(expr5))
     val expr6 = MathExpressions.Mul(MathExpressions.Num(2), MathExpressions.Mul(MathExpressions.Num(3), MathExpressions.Variable("x")))
     println(simplify(expr6))
+    val expr7 = MathExpressions.Pow(MathExpressions.Variable("x"), MathExpressions.Num(2))
+    println(deriv(expr7))
+    val expr8 = MathExpressions.Mul(MathExpressions.Num(3), MathExpressions.Variable("x"))
+    println(deriv(expr8))
+    val expr9 = MathExpressions.Add(
+        MathExpressions.Pow(MathExpressions.Variable("x"), MathExpressions.Num(3)),
+        MathExpressions.Mul(MathExpressions.Num(2), MathExpressions.Variable("x"))
+    )
+    println(deriv(expr9))
 }
