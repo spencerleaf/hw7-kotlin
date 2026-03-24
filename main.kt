@@ -112,6 +112,17 @@ fun deriv(expression: MathExpressions): MathExpressions = simplify(when(expressi
     }
 })
 
+fun format(expression: MathExpressions): String = when(expression){
+    is MathExpressions.Num -> expression.value.toString()
+    is MathExpressions.Variable -> expression.name
+    is MathExpressions.Negative -> "-(${format(expression.name)})"
+    is MathExpressions.Add -> "${format(expression.left)} + ${format(expression.right)}"
+    is MathExpressions.Sub -> "${format(expression.left)} - ${format(expression.right)}"
+    is MathExpressions.Mul -> "${format(expression.left)} * ${format(expression.right)}"
+    is MathExpressions.Div -> "${format(expression.left)} / ${format(expression.right)}"
+    is MathExpressions.Pow -> "${format(expression.base)}^${format(expression.exp)}"
+}
+
 fun main(){
     val x = MathExpressions.Num(5)
     println(x)
@@ -136,4 +147,11 @@ fun main(){
         MathExpressions.Mul(MathExpressions.Num(2), MathExpressions.Variable("x"))
     )
     println(deriv(expr9))
+    println(format(MathExpressions.Num(5)))
+    println(format(MathExpressions.Variable("x")))
+    println(format(MathExpressions.Add(MathExpressions.Num(3), MathExpressions.Variable("x"))))
+    println(format(MathExpressions.Mul(MathExpressions.Num(2), MathExpressions.Pow(MathExpressions.Variable("x"), MathExpressions.Num(3)))))
+    println(format(deriv(MathExpressions.Pow(MathExpressions.Variable("x"), MathExpressions.Num(2)))))
+    println(format(deriv(MathExpressions.Add(
+    MathExpressions.Pow(MathExpressions.Variable("x"), MathExpressions.Num(3)), MathExpressions.Mul(MathExpressions.Num(2), MathExpressions.Variable("x"))))))
 }
