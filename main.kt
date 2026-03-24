@@ -297,6 +297,22 @@ fun formatParens(expression: MathExpressions, prec: Int): String {
 
 fun formatBetter(expression: MathExpressions) = formatParens(expression, 0)
 
+fun userInvolvement() {
+    println("Real time math interpreter!!!")
+    println("Cmds: deriv(..., Y), eval(..., Y), eval(..., number), simplify(..., Y)")
+    println("Type 'quit' to exit")
+    while (true) {
+        print("> ")
+        val line = readLine() ?: break
+        if (line.trim() == "quit") break
+        try {
+            println(interpretFunction(line.trim()))
+        } catch (e: Exception) {
+            println("Error: ${e.message}")
+        }
+    }
+}
+
 fun main(){
     println(interpretFunction("deriv(x^2, Y)"))
     println(interpretFunction("deriv(x+x^2+x^3, Y)"))
@@ -309,4 +325,18 @@ fun main(){
     println(interpretFunction("simplify(5-x*(3/3)+2, Y)"))
     println(interpretFunction("simplify(1*x-0/3+2, Y)"))
     println(interpretFunction("simplify(5+2*6+x, Y)"))
+
+    println("extension 1: parentheses printing")
+    println(formatBetter(parse("(3+x)*2")))        
+    println(formatBetter(parse("3+x*2")))          
+    println(formatBetter(parse("x^2+3*x")))        
+    println(formatBetter(deriv(parse("x^2+3*x")))) 
+
+    println("extension 2: variable value substitution")
+    println(interpretFunction("eval(x^2+3*x, 5)"))  
+    println(interpretFunction("eval(x^3-2*x, 3)"))  
+    println(interpretFunction("eval(x^2, 4)"))
+    
+    println("extension 3: user input in command line")
+    userInvolvement()
 }
