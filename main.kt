@@ -257,6 +257,28 @@ fun format(expression: MathExpressions): String = when(expression){
     is MathExpressions.Pow -> "${format(expression.base)}^${format(expression.exp)}"
 }
 
+fun formatParens(expression: MathExpressions, prec: Int): String {
+    val result = when(expression) {
+        is MathExpressions.Num -> expression.value.toString()
+        is MathExpressions.Variable -> expression.name
+        is MathExpressions.Negative -> "-(${formatParens(expression.name, 0)})"
+        is MathExpressions.Add -> "${formatParens(expression.left, 1)} + ${formatParens(expression.right, 1)}"
+        is MathExpressions.Sub -> "${formatParens(expression.left, 1)} - ${formatParens(expression.right, 2)}"
+        is MathExpressions.Mul -> "${formatParens(expression.left, 2)} * ${formatParens(expression.right, 2)}"
+        is MathExpressions.Div -> "${formatParens(expression.left, 2)} / ${formatParens(expression.right, 3)}"
+        is MathExpressions.Pow -> "${formatParens(expression.base, 3)}^${formatParens(expression.exp, 0)}"
+    }
+    val myPrec = when(expression) {
+        is MathExpressions.Add, is MathExpressions.Sub -> 1
+        is MathExpressions.Mul, is MathExpressions.Div -> 2
+        is MathExpressions.Pow -> 3
+        else -> 4
+    }
+    return if (myPrec < prec) "($result)" else result
+}
+
+fun formatBetter(expression: MathExpressions) = formatParens(expression, 0)
+
 fun main(){
     val x = MathExpressions.Num(5)
     println(x)
@@ -303,4 +325,9 @@ fun main(){
     println(interpretFunction("simplify(5-x*(3/3)+2, Y)"))
     println(interpretFunction("simplify(1*x-0/3+2, Y)"))
     println(interpretFunction("simplify(5+2*6+x, Y)"))
+
+    println(formatBetter(parse("3+x")))           
+    println(formatBetter(parse("(3+x)*2")))       
+    println(formatBetter(parse("3+x*2")))         
+    println(formatBetter(deriv(parse("x^2+3*x"))))
 }
