@@ -9,6 +9,129 @@ sealed class MathExpressions{
     data class Pow(val base: MathExpressions, val exp: MathExpressions) : MathExpressions()
 }
 
+class Parser(val input: String){
+    //ew im getting grin token flashbacks rn
+    var position = 0
+    val len = input.length
+    fun noWhitespace(){
+        //i know this should be while i just wanted to see if i could write a for loop
+        for(i in position until len){
+            if(input[i] != ' '){
+                break
+            }
+            position++
+        }
+    }
+
+    fun parseExpression(): MathExpressions{
+        var left = parseTerm()
+        noWhitespace()
+        while(position < len && (input[position] == '+' || input[position] == '-')){
+            val operator = input[position]
+            position++
+            noWhitespace()
+            val right = parseTerm()
+            if(operator == '+'){
+                left = MathExpressions.Add(left, right)
+            } else {
+                left = MathExpressions.Sub(left, right)
+            }
+            noWhitespace()
+        }
+        return left
+    }
+
+    fun parseTerm(): MathExpressions{
+        var left = parsePower()
+        noWhitespace()
+        while(position < len && (input[position] == '*' || input[position] == '/')){
+            val operator = input[position]
+            position++
+            noWhitespace()
+            val right = parsePower()
+            if(operator == '*'){
+                left = MathExpressions.Mul(left, right)
+            } else {
+                left = MathExpressions.Div(left, right)
+            }
+            noWhitespace()
+        }
+        return left
+    }
+
+    fun parsePower(): MathExpressions{
+        val base = parseModifiers()
+        noWhitespace()
+        return when{
+            position < len && input[position] == '^' ->{
+                position++
+                noWhitespace()
+                val exp = parsePower()
+                MathExpressions.Pow(base, exp)
+            }
+            else -> base
+        }
+    }
+
+    fun parseModifiers(): MathExpressions{
+        noWhitespace()
+        if(position < len && input[position] == '-'){
+            position++
+            return MathExpressions.Negative(parseModifiers())
+        }
+        if(position < len && input[position] == '('){
+            position++
+            val expression = parseExpression()
+            noWhitespace()
+            position++
+            return expression
+        }
+        if (position < len && input[position].isDigit()) {
+            val start = position
+            while (position < len && input[position].isDigit()){ 
+                position++
+            }
+            return MathExpressions.Num(input.substring(start, position).toInt())
+        }
+        if (position < len && input[position].isLetter()) {
+            val start = position
+            while (position < len && input[position].isLetter()) {
+                position++
+            }
+            return MathExpressions.Variable(input.substring(start, position))
+        }
+        throw Exception("unexpected character: ${input[position]}")
+    }
+}
+
+fun parse(input: String): MathExpressions{
+    val grinParserLol = Parser(input)
+    return grinParserLol.parseExpression()
+}
+
+fun interpretFunction(line: String): String {
+    return when {
+        line.startsWith("deriv(") -> {
+            val expr = line.removePrefix("deriv(").substringBefore(",")
+            format(simpFix(simpFix(deriv(simpFix(parse(expr))))))
+        }
+        line.startsWith("eval(") -> {
+            val expr = line.removePrefix("eval(").substringBefore(",")
+            eval(parse(expr)).toString()
+        }
+        line.startsWith("simplify(") -> {
+            val expr = line.removePrefix("simplify(").substringBefore(",")
+            format(simpFix(parse(expr)))
+        }
+        else -> "unknown command: $line"
+    }
+}
+
+fun simpFix(e: MathExpressions): MathExpressions {
+    val simplified = simplify(e)
+    return if (simplified == e) e else simpFix(simplified)
+}
+
 fun eval(e: MathExpressions): Int = when(e) {
     is MathExpressions.Num -> e.value
     is MathExpressions.Variable -> throw Exception("trying to eval a variable")
@@ -43,7 +166,11 @@ fun simplifyAdd(left: MathExpressions, right: MathExpressions): MathExpressions 
     left is MathExpressions.Num && right is MathExpressions.Num -> MathExpressions.Num(left.value + right.value)
     left is MathExpressions.Num && left.value == 0 -> right
     right is MathExpressions.Num && right.value == 0 -> left
-    right is MathExpressions.Negative -> simplifySub(left, right)
+    right is MathExpressions.Negative -> simplifySub(left, right.name)
+    left is MathExpressions.Num && right is MathExpressions.Sub && right.left is MathExpressions.Num -> simplifySub(MathExpressions.Num(left.value + right.left.value), right.right)
+    left is MathExpressions.Sub && left.left is MathExpressions.Num && right is MathExpressions.Num -> simplifySub(MathExpressions.Num(left.left.value + right.value), left.right)
+    left is MathExpressions.Sub && right is MathExpressions.Num && right.value == 0 -> left
+    right is MathExpressions.Sub && left is MathExpressions.Num && left.value == 0 -> right
     else -> MathExpressions.Add(left, right)
 }
 
@@ -51,7 +178,9 @@ fun simplifySub(left: MathExpressions, right: MathExpressions): MathExpressions 
     left is MathExpressions.Num && right is MathExpressions.Num -> MathExpressions.Num(left.value - right.value)
     right is MathExpressions.Num && right.value == 0 -> left
     left == right -> MathExpressions.Num(0)
-    right is MathExpressions.Negative -> simplifyAdd(left, right)
+    right is MathExpressions.Negative -> simplifyAdd(left, right.name)
+    right is MathExpressions.Div && right.left is MathExpressions.Num && right.left.value < 0 -> simplifyAdd(left, MathExpressions.Div(MathExpressions.Num(-right.left.value), right.right))
+    left is MathExpressions.Num && left.value == 0 -> MathExpressions.Negative(right)
     else -> MathExpressions.Sub(left, right)
 }
 
@@ -74,6 +203,10 @@ fun simplifyDiv(left: MathExpressions, right: MathExpressions): MathExpressions 
     left is MathExpressions.Num && right is MathExpressions.Num -> MathExpressions.Num(left.value/right.value)
     left is MathExpressions.Mul && left.left == right -> left.right
     left is MathExpressions.Mul && left.right == right -> left.left
+    left is MathExpressions.Negative && right is MathExpressions.Num -> MathExpressions.Negative(simplifyDiv(left.name, right))
+    right is MathExpressions.Div && right.left is MathExpressions.Negative -> simplifyAdd(left, MathExpressions.Div(right.left.name, right.right))
+    left is MathExpressions.Mul && right is MathExpressions.Pow && left.right == right.base && right.exp is MathExpressions.Num -> simplifyDiv(left.left, MathExpressions.Pow(right.base, MathExpressions.Num(right.exp.value - 1)))
+    right is MathExpressions.Pow && left is MathExpressions.Negative -> MathExpressions.Negative(simplifyDiv(left.name, right))
     else -> MathExpressions.Div(left, right)
 }
 
@@ -83,6 +216,7 @@ fun simplifyPow(base: MathExpressions, exp: MathExpressions): MathExpressions = 
     base is MathExpressions.Num && base.value == 0 -> MathExpressions.Num(0)
     base is MathExpressions.Num && base.value == 1 -> MathExpressions.Num(1)
     base is MathExpressions.Num && exp is MathExpressions.Num -> MathExpressions.Num(Math.pow(base.value.toDouble(), exp.value.toDouble()).toInt())
+    base is MathExpressions.Pow && exp is MathExpressions.Num && base.exp is MathExpressions.Num -> simplifyPow(base.base, MathExpressions.Num(base.exp.value * exp.value))
     else -> MathExpressions.Pow(base, exp)
 }
 
@@ -154,4 +288,19 @@ fun main(){
     println(format(deriv(MathExpressions.Pow(MathExpressions.Variable("x"), MathExpressions.Num(2)))))
     println(format(deriv(MathExpressions.Add(
     MathExpressions.Pow(MathExpressions.Variable("x"), MathExpressions.Num(3)), MathExpressions.Mul(MathExpressions.Num(2), MathExpressions.Variable("x"))))))
+    println(format(parse("x^2")))                    
+    println(format(parse("3 + 2*x")))               
+    println(format(deriv(parse("x^2"))))           
+    println(format(deriv(parse("x+x^2+x^3"))))
+    println(interpretFunction("deriv(x^2, Y)"))
+    println(interpretFunction("deriv(x+x^2+x^3, Y)"))
+    println(interpretFunction("deriv((x*2*x)/x, Y)"))
+    println(interpretFunction("deriv(x^4+2*x^3-x^2+5*x-1/x, Y)"))
+    println(interpretFunction("deriv(4*x^3+6*x^2-2*x+5+1/x^2, Y)"))
+    println(interpretFunction("eval(5-6*18/3+2, Y)"))
+    println(interpretFunction("eval(10*20-9/3+20, Y)"))
+    println(interpretFunction("eval(10^3*9-100, Y)"))
+    println(interpretFunction("simplify(5-x*(3/3)+2, Y)"))
+    println(interpretFunction("simplify(1*x-0/3+2, Y)"))
+    println(interpretFunction("simplify(5+2*6+x, Y)"))
 }
